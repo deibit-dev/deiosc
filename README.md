@@ -21,6 +21,10 @@ Oscilador digital de **pad ambiental continuo** para KORG minilogue xd (logue-SD
 | **SHIFT + SHAPE** | `k_user_osc_param_shiftshape` | Período del batido (0 = sin batido / señal base pura, 100% = ~1.3 s sin golden) |
 | **EDIT 1** | `k_user_osc_param_id1` | **Sub** (0–100%): mezcla de sub octava |
 
+## Uso
+
+Para usar sin compilar, usar deiosc.mnlgxdunit (válido para Minilogue xd)
+
 ## Compilar
 
 Fuera del árbol del SDK, indica la ruta de la plataforma:
