@@ -23,7 +23,7 @@ Oscilador digital de **pad ambiental continuo** para KORG minilogue xd (logue-SD
 
 ## Uso
 
-Para usar sin compilar, usar deiosc.mnlgxdunit (válido para Minilogue xd)
+Para usar sin compilar, usar /builds/deiosc.mnlgxdunit (válido para Minilogue xd)
 
 ## Compilar
 
