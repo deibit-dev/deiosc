@@ -33,23 +33,27 @@ struct DeiOsc {
   };
 
   // ------------------------------------------------------------------------
-  // State — estado persistente entre bloques de audio (por instancia/voz).
+  // State — estado persistente del audio POR VOZ.
   // ------------------------------------------------------------------------
+  // El firmware de minilogue-xd provee un runtime de unidad por cada voz, así
+  // que una instancia de State (y todo lo que cuelga de ella) es POR VOZ. El
+  // reloj de presencia del golden (s1) NO vive aquí: es una variable global de
+  // la unidad en deiosc.cpp, compartida entre voces, avanzada por tiempo real
+  // medido con el contador de ciclos del Cortex-M4 (DWT), sin contar voces.
   struct State {
     float   phi_a;      // fase de la voz A: lee warm+golden en fase (referencia,
-                        //   sin offset de batido).
+                        //   sin offset de batido). Se resetea a 0 en note-on.
     float   phi_b;      // fase de la voz B: avanza idéntico a phi_a; sobre ella
-                        //   se suma s_beat SOLO en la lectura warm.
+                        //   se suma s_beat SOLO en la lectura warm. Se resetea a 0
+                        //   en note-on.
     float   phi_sub;    // fase del sub: avanza a w0/2 → una octava abajo.
-    float   s1;         // fase del modulador interno libre (wander ~0.0233 Hz).
-                        //   Free-running: no se resetea en note-on.
-    float   s_beat;     // offset de fase rotatorio del batido (0..1). Avanza a
-                        //   beatHz por segundo; 0 = voces en fase (sin batido).
+                        //   Se resetea a 0 en note-on.
+    float   s_beat;     // offset de fase rotatorio del batido de ESTA voz (0..1).
+                        //   Avanza a beatHz por segundo; 0 = voces en fase.
     uint8_t flags;      // banderas del SDK (kOscFlagReset se activa en note-on).
 
     State()
       : phi_a(0.f), phi_b(0.f), phi_sub(0.f),
-        s1(0.75f),                  // seno = -1 → el golden arranca ausente
         s_beat(0.f),                // voces en fase → sin batido al encender
         flags(kOscFlagNone) {}
   };
