@@ -8,8 +8,9 @@
 // Dos voces a la misma frecuencia (w0) leen dos tablas (warm = base, golden)
 // y las cruzan con un morph común. El batido sale de un offset de fase
 // rotatorio aplicado SOLO a la lectura warm de la voz B; el golden no bate.
-// El movimiento tímbrico perpetuo lo aporta un único modulador interno libre
-// (s1): no hay LFO externo ni parámetro Breath.
+// El movimiento tímbrico perpetuo lo aporta la fase de presencia del golden,
+// derivada del contador de ciclos de hardware (global para todas las voces):
+// no hay LFO externo ni parámetro Breath.
 // ============================================================================
 
 struct DeiOsc {
@@ -36,18 +37,16 @@ struct DeiOsc {
   // State — estado persistente del audio POR VOZ.
   // ------------------------------------------------------------------------
   // El firmware de minilogue-xd provee un runtime de unidad por cada voz, así
-  // que una instancia de State (y todo lo que cuelga de ella) es POR VOZ. El
-  // reloj de presencia del golden (s1) NO vive aquí: es una variable global de
-  // la unidad en deiosc.cpp, compartida entre voces, avanzada por tiempo real
-  // medido con el contador de ciclos del Cortex-M4 (DWT), sin contar voces.
+  // que una instancia de State (y todo lo que cuelga de ella) es POR VOZ. La
+  // presencia del golden NO es estado: se computa desde el contador de ciclos
+  // de hardware (DWT->CYCCNT), que es el único recurso compartido entre voces,
+  // dando una fase global idéntica para todos los slots.
   struct State {
     float   phi_a;      // fase de la voz A: lee warm+golden en fase (referencia,
-                        //   sin offset de batido). Se resetea a 0 en note-on.
+                        //   sin offset de batido).
     float   phi_b;      // fase de la voz B: avanza idéntico a phi_a; sobre ella
-                        //   se suma s_beat SOLO en la lectura warm. Se resetea a 0
-                        //   en note-on.
+                        //   se suma s_beat SOLO en la lectura warm.
     float   phi_sub;    // fase del sub: avanza a w0/2 → una octava abajo.
-                        //   Se resetea a 0 en note-on.
     float   s_beat;     // offset de fase rotatorio del batido de ESTA voz (0..1).
                         //   Avanza a beatHz por segundo; 0 = voces en fase.
     uint8_t flags;      // banderas del SDK (kOscFlagReset se activa en note-on).

@@ -28,7 +28,7 @@ WARM_K = 1.1         # saturation drive: 0 = sine, 1.4 = soft tube, large = squa
 WARM_SAT = True        # True = tanh saturation, False = pure sine warm table
 N_PARTIALS = 4
 ROLLOFF = 1.5
-GOLD_GAIN = 0.6
+GOLD_GAIN = 1
 PHI = (1.0 + math.sqrt(5.0)) / 2.0
 OUT = "dei_tables.h"
 

@@ -3,83 +3,48 @@
 #include "dei_tables.h"
 
 // ---------------------------------------------------------------------------
-// Estado GLOBAL de la unidad (compartido entre voces).
+// Presencia GLOBAL por reloj de ciclos (hardware, sin estado por voz).
 // ---------------------------------------------------------------------------
-// El reloj de presencia del golden debe ser ÚNICO para toda la unidad: todas
-// las voces deben leer el mismo w1 (mismo morph) y el reloj debe correr a
-// tiempo real. Se mide el tiempo real con el contador de ciclos del Cortex-M4
-// (DWT->CYCCNT): entre llamadas consecutivas a OSC_CYCLE se integra el dt de
-// ciclos (convertido a segundos con la frecuencia de CPU) acumulando la fase
-// en g_s1. Así no se depende del nº de voces ni de NOTEON/NOTEOFF: el reloj
-// corre a tiempo real haya 1 o N voces, release, stealing, etc.
-// DeiOsc (State/phi/lpz) queda reservado al estado por voz.
+// El firmware de minilogue-xd instancia el unit POR VOZ: cada slot tiene su
+// propia copia de las variables estáticas, así que NADA declarado como
+// `static` es compartido entre voces. El ÚNICO recurso realmente compartido es
+// el hardware: DWT->CYCCNT es un registro físico del Cortex-M4, el mismo para
+// todos los slots en un instante dado.
+//
+// Por eso la fase de presencia NO se acumula (acumular diverge por slot): se
+// COMPUTA directamente desde CYCCNT como fase fija-point, alineada con el wrap
+// del contador de 32 bits. La fase es pura función del tiempo de hardware,
+// idéntica en todas las voces, y continua a través del wrap (el período de
+// presencia coincide con 2^32 ciclos ≈ 51 s a 84 MHz). Sin auto-modulación:
+// la marea es un seno de fase global, determinista y por construcción idéntico
+// entre notas → la continuidad de la presencia ya no depende de qué slot toca.
 
-// Fase del modulador interno de presencia (wander ~0.0233 Hz), GLOBAL: una sola
-// por unidad, compartida por todas las voces. Arranca en 0.75 (seno = -1 →
-// golden ausente). Free-running: nunca se resetea en note-on.
-static float g_s1 = 0.75f;
-
-// --- Reloj de ciclos (DWT) --------------------------------------------------
-// STM32F401 a 84 MHz. DWT->CYCCNT es un contador de 32 bits que se incrementa
-// por ciclo de CPU; se lee por diferencia entre llamadas (wrap natural en
-// unsigned). Se convierte a segundos y se acumula en g_s1 (fase, en float),
-// de modo que el overflow del contador de 32 bits no importa: nunca se usa
-// como valor absoluto, solo como dt entre llamadas consecutivas.
+// Registros del core (STM32F401).
 #define DEIOSC_DEMCR      (*(volatile uint32_t *)0xE000EDFCu)  // CoreDebug DEMCR
 #define DEIOSC_DWT_CTRL   (*(volatile uint32_t *)0xE0001000u)  // DWT->CTRL
 #define DEIOSC_DWT_CYCCNT (*(volatile uint32_t *)0xE0001004u)  // DWT->CYCCNT
 
-static const float kCpuHz = 84000000.f;   // frecuencia de CPU (84 MHz)
-
-static uint32_t g_prev_cyc  = 0u;
-static uint8_t  g_cyc_valid = 0u;         // primera llamada: sin dt previo
-
-// Tasa base del modulador interno de presencia (wander, ~0.0233 Hz) por
-// segundo, auto-modulada: rate_hz = kW0S1Hz * (1 + 0.5*w1).
-static const float kW0S1Hz = 0.0233f;
-
 // Instancia única del oscilador (una por llamada a OSC_CYCLE).
 static DeiOsc s_osc;
 
-// ---------------------------------------------------------------------------
-// Reloj de presencia (DWT)
-// ---------------------------------------------------------------------------
-
-// Habilita el contador de ciclos del Cortex-M4 y deja el reloj listo para
-// integrar. Se llama desde OSC_INIT.
+// Habilita el contador de ciclos del Cortex-M4 (DEMCR.TRCENA + DWT.CYCCNTENA).
 static void presence_init(void)
 {
-  // DEMCR.TRCENA + DWT.CYCCNTENA habilitan el contador de ciclos.
-  DEIOSC_DEMCR      |= (1u << 24);
-  DEIOSC_DWT_CYCCNT  = 0u;
-  DEIOSC_DWT_CTRL   |= (1u << 0);
-  g_prev_cyc  = 0u;
-  g_cyc_valid = 0u;
+  DEIOSC_DEMCR     |= (1u << 24);
+  DEIOSC_DWT_CTRL  |= (1u << 0);
+  DEIOSC_DWT_CYCCNT = 0u;   // ancla el origen de la fase de presencia
 }
 
-// Avanza la fase g_s1 por el tiempo REAL transcurrido desde la llamada anterior
-// a OSC_CYCLE, medido con DWT->CYCCNT. Las llamadas son consecutivas en el
-// tiempo real de CPU, así que la suma de sus dt equivale al tiempo que pasa de
-// verdad, haya 1 o N voces, release, stealing, etc. El tiempo inactivo (huecos
-// entre notas) también avanza la presencia: es un reloj de pared continuo.
-// El dt es correcto para cualquier hueco < 2^32 ciclos (~51 s a 84 MHz);
-// huecos mayores a un wrap completo no son medibles con un contador de 32 bits.
-static void presence_tick(void)
+// Fase de presencia global en [0,1), derivada del contador de ciclos. Usa los
+// 24 bits altos de CYCCNT: resolución de 2^-24 y período de 2^32 ciclos (~51 s
+// a 84 MHz). La fase cierra exacto en el wrap, así que nunca salta y es la
+// misma para todas las voces. El offset de +0.75 hace que al encender arranque
+// en golden ausente (warm = -1), igual que el diseño original.
+static inline float presence_phase(void)
 {
-  const uint32_t now = DEIOSC_DWT_CYCCNT;
-  if (g_cyc_valid) {
-    const uint32_t dtc = now - g_prev_cyc;   // wrap natural en unsigned
-    if (dtc != 0u) {
-      const float dt_s = (float)dtc / kCpuHz;   // ciclos → segundos
-      const float w1r  = read_q15(kDeiOscWarm, g_s1, kDeiOscTableSize,
-                                  kDeiOscTableMask);
-      // rate en Hz = kW0S1Hz·(1 + 0.5·w1) → fase += rate·dt
-      g_s1 += kW0S1Hz * (1.f + 0.5f * w1r) * dt_s;
-      g_s1 -= (uint32_t)g_s1;                   // mantiene fase en [0,1)
-    }
-  }
-  g_prev_cyc  = now;
-  g_cyc_valid = 1u;
+  const uint32_t c = DEIOSC_DWT_CYCCNT;
+  const uint32_t p = ((c >> 8) + 12582912u) & 0x00FFFFFFu;  // +0.75 de vuelta
+  return (float)p * (1.f / 16777216.f);                     // 2^-24
 }
 
 // Crossfade warm↔golden en fase de tabla: warm + morph·(golden − warm).
@@ -96,7 +61,6 @@ void OSC_INIT(uint32_t platform, uint32_t api)
 {
   (void)platform; (void)api;
   s_osc.init();
-  g_s1 = 0.75f;          // golden ausente al encender
   presence_init();
 }
 
@@ -108,8 +72,6 @@ void OSC_CYCLE(const user_osc_param_t * const params,
   DeiOsc::State &st = s_osc.state;
   const DeiOsc::Params &p = s_osc.params;
 
-  presence_tick();
-
   // Frecuencia angular de la nota (incremento de fase por muestra).
   const float w0 = osc_w0f_for_note((params->pitch)>>8, params->pitch & 0xFF);
   if (w0 <= 0.f) {
@@ -118,31 +80,25 @@ void OSC_CYCLE(const user_osc_param_t * const params,
     return;
   }
 
-  // En note-on el SDK pide reset de fase. Se resetean SOLO las fases de la
-  // forma de onda audible de ESTA voz (phi_a/b/sub): cada nota arranca las
-  // tablas en fase 0 (cruce por cero → ataque limpio y determinista). El reloj
-  // global de presencia g_s1 NO se resetea: es una secuencia continua única
-  // compartida por todas las voces.
+  // En note-on el SDK pide reset de fase. Las fases de la forma de onda audible
+  // se dejan correr (reset comentado): la presencia del golden es global por
+  // hardware y la continuidad entre notas ya no depende del slot.
   if (st.flags & kOscFlagReset) {
     st.flags &= ~kOscFlagReset;
-    st.phi_a   = 0.f;
-    st.phi_b   = 0.f;
-    st.phi_sub = 0.f;
   }
 
   // Copia local del estado: se trabaja sobre registros a lo largo del bucle.
   float phi_a   = st.phi_a;
   float phi_b   = st.phi_b;
   float phi_sub = st.phi_sub;
-  float s1      = g_s1;          // reloj GLOBAL de presencia (compartido)
   float s_beat  = st.s_beat;
 
   // --- Modulación lenta (a nivel de bloque) ---------------------------------
-  // w1 = salida del modulador interno (seno leído de la tabla warm, sin
-  // matemática extra). Maneja la presencia del golden y modula su propia
-  // tasa → LFO auto-modulante cuyo período nunca se asienta. Es la ÚNICA
-  // fuente de modulación: no hay LFO externo.
-  const float w1 = read_q15(kDeiOscWarm, s1, kDeiOscTableSize, kDeiOscTableMask);
+  // w = lectura de la tabla warm en la fase de presencia GLOBAL, derivada del
+  // reloj de ciclos de hardware (misma para todas las voces, continua en el
+  // wrap). Señal ∈ [−1, 1].
+  const float w = read_q15(kDeiOscWarm, presence_phase(), kDeiOscTableSize,
+                           kDeiOscTableMask);
 
   const float submix = p.submix;
   const float invmix = 1.f / (1.f + submix);  // normaliza la mezcla con el sub
@@ -154,7 +110,7 @@ void OSC_CYCLE(const user_osc_param_t * const params,
   //   · El wander (morph_w) está siempre a fuerza completa: es el "corazón
   //     continuo" que hace respirar el golden sin ningún control externo.
   // Constantes dentro del bloque: se calculan una vez, fuera del bucle.
-  float morph = p.shape * (1.f + w1) * 0.5f;
+  float morph = p.shape * (1.f + w) * 0.5f;
   const float mix = 0.80f + 0.10f * morph;
   // --- Beat (frecuencia del batido) -----------------------------------------
   // Rango ~0.62..0.75 Hz según morph. Shift+Shape = 0 → beatHz = 0 exacto
@@ -221,7 +177,7 @@ void OSC_CYCLE(const user_osc_param_t * const params,
   st.phi_b   = phi_b;
   st.phi_sub = phi_sub;
   st.s_beat  = s_beat;
-  // g_s1 ya se integró en presence_tick() con el dt real (DWT).
+  // La presencia se computa desde CYCCNT (hardware): no hay estado que guardar.
   s_osc.lpz = lpz;
 }
 
