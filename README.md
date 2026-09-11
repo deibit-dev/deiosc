@@ -1,8 +1,8 @@
 # deiosc
 
-Oscilador digital de **pad ambiental continuo** para KORG minilogue xd (logue-SDK).
+Oscilador digital pensado para ser parte de un **pad ambiental continuo** para KORG minilogue xd (logue-SDK).
 
-**deiosc** no genera notas discretas: es una **textura viva** que evoluciona mientras se mantiene la tecla. Un único modulador interno libre (wander) mantiene el timbre en movimiento perpetuo, sin modulación externa ni parámetros de LFO — el oscilador es 100 % autónomo y determinista.
+**deiosc** genera una **textura viva** que evoluciona mientras se mantiene la tecla. Un único modulador interno libre (wander) mantiene el timbre en movimiento perpetuo, sin modulación externa ni parámetros de LFO — el oscilador es 100 % autónomo y determinista.
 
 ## Características
 
@@ -77,4 +77,4 @@ SDK_PLATFORM=/ruta/logue-sdk/platform/minilogue-xd ./compile_and_upload.sh
 
 ---
 
-Proyecto de **DEI Engineering** — https://dei-engineering.tech
+Proyecto de **DEI-BIT** — https://dei-bit.tech
