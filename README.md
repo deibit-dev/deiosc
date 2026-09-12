@@ -1,70 +1,30 @@
-# deiosc
+# DEIOSC
 
-Oscilador digital pensado para ser parte de un **pad ambiental continuo** para KORG minilogue xd (logue-SDK).
+deiosc es un oscilador de usuario para el KORG Minilogue xd. Está orientado a la creación de pads: texturas sostenidas que evolucionan mientras se mantiene una nota. No genera notas monotonas ni secuencias; produce una señal continua cuyo contenido tímbrico cambia de forma autónoma.
+Composición del sonido
 
-**deiosc** genera una **textura viva** que evoluciona mientras se mantiene la tecla. Un único modulador interno libre (wander) mantiene el timbre en movimiento perpetuo, sin modulación externa ni parámetros de LFO — el oscilador es 100 % autónomo y determinista.
+El oscilador combina dos componentes:
 
-## Características
+    * Base senoidal con saturación: proporciona un timbre suave y estable.
+    * Componente inarmónico: construido a partir de parciales en potencias del número áureo (φ). Aporta un carácter más brillante e introduce una leve tensión.
 
-- **Dos voces a la misma frecuencia** (`w0`) que leen dos tablas (warm = base, golden) cruzadas por un morph común.
-- **Batido por phase rotation** (no detune): un offset de fase rotatorio `s_beat` que rota solo la lectura warm de la voz B → período exacto `1/beatHz`, independiente de la nota y sin multiplicación por armónicos. El golden no bate.
-- **Morph warm ↔ golden** con parciales en potencias de φ (1.618ⁿ): a medio camino entre la serie armónica y la campana.
-- **Wander autónomo permanente**: LFO interno auto-modulante (~0.0233 Hz, ±50%) que mueve la presencia del golden y el balance de voces.
-- **Reloj por tiempo real**: la presencia avanza midiendo el tiempo real con `DWT->CYCCNT` — estable con acordes, release y retrigger; el tiempo inactivo también mueve la presencia.
-- **Ataque limpio por nota**: las fases del oscilador audible se resetean a 0 en note-on; la presencia del golden no.
-- **Sub octava** mezclable (EDIT 1).
+La mezcla entre ambos varía automáticamente a lo largo de un ciclo de aproximadamente 51 segundos. Esta modulación es interna y no utiliza el LFO del sintetizador. El usuario puede ajustar la presencia global del componente inarmónico, pero no la velocidad ni la forma de la modulación, que están fijadas por diseño.
+Batido
 
+El oscilador incluye un batido cuya intensidad depende de la presencia del componente inarmónico. Cuando este componente disminuye, el batido se hace más audible; cuando aumenta, el batido se atenúa. El período del batido es fijo y no depende de la nota tocada.
+Suboscilador
+
+Opcionalmente, se puede añadir un suboscilador para reforzar las frecuencias graves.
 ## Controles
 
-| Control físico | Parámetro SDK | Rol |
-|---|---|---|
-| **SHAPE** (MULTI ENGINE) | `k_user_osc_param_shape` | Escala el morph cálido → golden (0 = sin golden, 1 = golden dominante) |
-| **SHIFT + SHAPE** | `k_user_osc_param_shiftshape` | Período del batido (0 = sin batido / señal base pura, 100% = ~1.3 s sin golden) |
-| **EDIT 1** | `k_user_osc_param_id1` | **Sub** (0–100%): mezcla de sub octava |
+    * SHAPE: controla la presencia global del componente inarmónico. 0 = solo base; 1 = máximo.
+    * SHIFT + SHAPE: controla la intensidad del batido. 0 = sin batido; 1 = máximo.
+    * EDIT 1: controla el nivel del suboscilador.
 
+Estos controles ajustan la presencia global de los componentes, pero no alteran la modulación interna automática.
 ## Uso
 
-Para usar sin compilar, usar /builds/deiosc.mnlgxdunit (válido para Minilogue xd)
-
-## Compilar
-
-Fuera del árbol del SDK, indica la ruta de la plataforma:
-
-```
-make PLATFORMDIR=/ruta/logue-sdk/platform/minilogue-xd
-```
-
-El binario queda en `build/deiosc.mnlgxdunit`.
-
-## Subir al minilogue xd
-
-Con `logue-cli` (puertos SOUND detectados: in 2 / out 2, slot 4):
-
-```
-logue-cli load -u deiosc.mnlgxdunit -i 2 -o 2 -s 4
-```
-
-O directamente:
-
-```
-SDK_PLATFORM=/ruta/logue-sdk/platform/minilogue-xd ./compile_and_upload.sh
-```
-
-## Estructura del proyecto
-
-| Archivo | Rol |
-|---|---|
-| `deiosc.cpp` | Implementación del oscilador (`OSC_CYCLE`, `OSC_PARAM`, …) |
-| `deiosc.hpp` | Clase `DeiOsc`: `Params` (controles) y `State` (estado por voz) |
-| `dei_tables.h` | Tablas Q15 precomputadas (warm + golden), 256×2 int16 |
-| `gen_tables.py` / `basic_forms.py` | Generadores offline de las tablas |
-| `manifest.json` | Metadatos del unit (nombre, parámetros) |
-| `project.mk` | Configuración del proyecto (nombre, fuentes) |
-| `Makefile` | Build system del logue-SDK |
-| `tpl/`, `ld/` | Template de entrada y linker script del SDK |
-| `ESPECIFICACION.md` | Especificación técnica del oscilador |
-| `PROCESO.md` | Bitácora del proceso de diseño |
-| `BLOG_ENTRY_ES.md` | Borrador del artículo técnico |
+Cargue el archivo de unidad en un slot de usuario del Multi Engine del minilogue xd. Seleccione el oscilador y ajuste los controles según el resultado deseado. El LFO del sintetizador queda disponible para otras funciones.
 
 ## Notas de diseño
 
