@@ -35,6 +35,7 @@ Cargue el archivo de unidad en un slot de usuario del Multi Engine del minilogue
 - No hay ruido ni aleatoriedad: todo es determinista.
 - Los formatos de tabla y el balance se documentan en la especificación técnica del proyecto.
 
+  Para el visitante interesado en profundizar en como fue el proceso de construcción, creé una publicación con detalles de diseño, algunos detalles de implementación y del proceso de creación: [Construyendo un oscilador personalizado para KORG Minilogue xd](https://dei-bit.tech/2026/08/25/construyendo-un-oscilador-personalizado-para-korg-minilogue-xd/).
 ---
 
 Proyecto de **DEI-BIT** — https://dei-bit.tech
