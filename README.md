@@ -1,7 +1,7 @@
 # DEIOSC
 
 deiosc es un oscilador de usuario para el KORG Minilogue xd. Está orientado a la creación de pads: texturas sostenidas que evolucionan mientras se mantiene una nota. No genera notas monotonas ni secuencias; produce una señal continua cuyo contenido tímbrico cambia de forma autónoma.
-Composición del sonido
+## Composición del sonido
 
 El oscilador combina dos componentes:
 
