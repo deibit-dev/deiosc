@@ -24,7 +24,7 @@ Opcionalmente, se puede añadir un suboscilador para reforzar las frecuencias gr
 Estos controles ajustan la presencia global de los componentes, pero no alteran la modulación interna automática.
 ## Uso
 
-Cargue el archivo de unidad en un slot de usuario del Multi Engine del minilogue xd. Seleccione el oscilador y ajuste los controles según el resultado deseado. El LFO del sintetizador queda disponible para otras funciones.
+Descargue el oscilador desde la sección releases. Cargue el archivo de unidad en un slot de usuario del Multi Engine del minilogue xd. Seleccione el oscilador y ajuste los controles según el resultado deseado. El LFO del sintetizador queda disponible para otras funciones.
 
 ## Notas de diseño
 
