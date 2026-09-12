@@ -39,9 +39,9 @@ Descargue el oscilador desde la sección releases. Cargue el archivo de unidad e
 
 ## Demos
 
-[![Demo introductoria al oscilador](https://youtu.be/hEEluVHcMvQ)]
+[Demo introductoria al oscilador](https://youtu.be/hEEluVHcMvQ)
 
-[![Demo con preset que combina deiosc+vco](https://youtu.be/hwX-FXrKZW0)]
+[Demo con preset que combina deiosc+vco](https://youtu.be/hwX-FXrKZW0)
 
 
 ---
@@ -91,9 +91,9 @@ Download the oscillator from the releases section. Load the unit file into a use
 
 ## Demos
 
-[![Introductory demo of the oscillator](https://youtu.be/hEEluVHcMvQ)]
+[Introductory demo of the oscillator](https://youtu.be/hEEluVHcMvQ)
 
-[![Demo with a preset combining deiosc+vco](https://youtu.be/hwX-FXrKZW0)]
+[Demo with a preset combining deiosc+vco](https://youtu.be/hwX-FXrKZW0)
 
 
 
